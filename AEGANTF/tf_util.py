@@ -81,7 +81,7 @@ def recon_loss(input_image, recon_image):
     :return:
     """
 
-    recon_loss = tf.reduce_sum(tf.losses.mean_squared_error(labels=input_image, predictions=recon_image))
+    recon_loss = tf.reduce_mean(tf.losses.mean_squared_error(labels=input_image, predictions=recon_image))
 
     return recon_loss
 
