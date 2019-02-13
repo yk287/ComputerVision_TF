@@ -1,107 +1,94 @@
 
 from util import *
+import tf_util
 from model import *
 from dataloader import *
+from image_to_gif import *
 
 from options import options
 
 options = options()
 opts = options.parse()
 
-tf.reset_default_graph()
+session = tf.InteractiveSession()
 
-# number of images for each batch
-batch_size = opts.batch
-# our noise dimension
-noise_dim = 96
-n_classes = 10
+with tf.name_scope('placeholders'):
+    x_true = tf.placeholder(tf.float32, [None, 784])
+    x_masked = tf.placeholder(tf.float32, [None, 784])
+    z = tf.placeholder(tf.float32, [None, 16])
 
-# placeholder for images from the training dataset
-x = tf.placeholder(tf.float32, [None, 784])
-y = tf.placeholder(tf.float32, [None, n_classes])
-# random noise fed into our generator
-z = sample_noise(batch_size, noise_dim)
-fake_y = tf.placeholder(tf.float32, [None, n_classes])
-# generated images
+with tf.name_scope('loss'):
+    x_true = x_true
+    x_masked = x_masked
 
-G_sample = generator(tf.concat([z, fake_y],  axis=1))
+    z, mu, sigma = encoder(x_masked)
+    logits, reconstruction = decoder(z)
 
-with tf.variable_scope("") as scope:
-    #scale images to be -1 to 1
-    logits_real = discriminator(tf.concat([preprocess_img(x), y], axis=1))
-    # Re-use discriminator weights on new inputs
-    scope.reuse_variables()
-    logits_fake = discriminator(tf.concat([G_sample, fake_y], axis=1))
+    latent_losses = 0.5 * tf.reduce_sum(tf.square(mu) + tf.square(sigma) - tf.log(tf.square(sigma)) - 1, axis=1)
 
-# Get the list of variables for the discriminator and generator
-D_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, 'discriminator')
-G_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, 'generator')
+    reconstruction_losses = tf_util.recon_loss(x_true, logits)
+    loss = tf.reduce_mean(reconstruction_losses + latent_losses)
 
-# get our solver
-D_solver, G_solver = get_solvers(learning_rate=opts.lr)
-
-# get our loss
-D_loss, G_loss = gan_loss(logits_real, logits_fake)
-
-# setup training steps
-D_train_step = D_solver.minimize(D_loss, var_list=D_vars)
-G_train_step = G_solver.minimize(G_loss, var_list=G_vars)
-
-D_extra_step = tf.get_collection(tf.GraphKeys.UPDATE_OPS, 'discriminator')
-G_extra_step = tf.get_collection(tf.GraphKeys.UPDATE_OPS, 'generator')
-
+with tf.name_scope('optimizer'):
+    optimizer = tf.train.AdamOptimizer(learning_rate=opts.lr)
+    train = optimizer.minimize(loss)
 
 # a giant helper function
-def run_a_gan(sess, G_train_step, G_loss, D_train_step, D_loss, G_extra_step, D_extra_step, \
-              show_every=2, print_every=1, batch_size=128, num_epoch=10):
-    """Train a GAN for a certain number of epochs.
-
-    Inputs:
-    - sess: A tf.Session that we want to use to run our data
-    - G_train_step: A training step for the Generator
-    - G_loss: Generator loss
-    - D_train_step: A training step for the Generator
-    - D_loss: Discriminator loss
-    - G_extra_step: A collection of tf.GraphKeys.UPDATE_OPS for generator
-    - D_extra_step: A collection of tf.GraphKeys.UPDATE_OPS for discriminator
-    Returns:
-        Nothing
+def train_VAE(train_step, loss, reconstruction, show_every=777, print_every=1, batch_size=128, num_epoch=10):
+    """
+    function that trains VAE.
+    :param train_step: an op that defines what to do with the loss function (minimize or maximize)
+    :param loss: an op that defines the loss function to be minimized
+    :param reconstruction: an op that defines how to reconstruct a target image
+    :param show_every: how often to show an image to gauge training progress
+    :param print_every: how often to print loss
+    :param batch_size: batch size of training samples
+    :param num_epoch: how many times to iterate over the training samples
+    :return:
     """
     # compute the number of iterations we need
     mnist = MNIST(batch_size=batch_size, shuffle=True)
+    step= 0
+
+    masked = []
+    recon = []
+    true = []
+
     for epoch in range(num_epoch):
         # every show often, show a sample result
-
         for (minibatch, minbatch_y) in mnist:
 
-            minbatch_y = one_hot_encoder(minbatch_y, n_classes)
-            fake_labels = generate_fake_label(opts.batch, n_classes=n_classes)
+            x_true_masked = black_out(minibatch.reshape([-1, 28, 28, 1]), width=3).reshape([-1, 784])
 
-            # run a batch of data through the network
-            _, D_loss_curr = sess.run([D_train_step, D_loss], feed_dict={x: minibatch, y: minbatch_y, fake_y: fake_labels})
-            _, G_loss_curr = sess.run([G_train_step, G_loss], feed_dict={fake_y: fake_labels})
+            _, loss_curr, recon_image, true_image, masked_image = session.run([train_step, loss, reconstruction, x_true, x_masked], feed_dict={x_true: minibatch, x_masked: x_true_masked})
 
-        # print loss every so often.
-        # We want to make sure D_loss doesn't go to 0
-        if epoch % show_every == 0:
+            if step % show_every == 0:
+                '''for every show_every step, show reconstructed images from the training iteration'''
 
-            fake_labels = generate_fake_label(opts.batch, n_classes=n_classes)
+                masked_name = './img/masked_%s.png' %step
+                recon_name = './img/recon_%s.png' %step
+                true_name = './img/true_%s.png' %step
 
-            samples = sess.run(G_sample, feed_dict={fake_y: fake_labels})
-            fig = show_images(samples[:25])
-            plt.show()
-            print()
+                masked.append(masked_name)
+                recon.append(recon_name)
+                true.append(true_name)
 
+                show_images(masked_image[:16], masked_name)
+                plt.show()
+
+                show_images(recon_image[:16], recon_name)
+                plt.show()
+
+                show_images(true_image[:16], true_name)
+                plt.show()
+
+            step += 1
         if epoch % print_every == 0:
-            print('Epoch: {}, D: {:.4}, G:{:.4}'.format(epoch, D_loss_curr, G_loss_curr))
-    print('Final images')
+            print('Epoch: {}, D: {:.4}'.format(epoch, loss_curr))
 
-    fake_labels = generate_fake_label(opts.batch, n_classes=n_classes)
-    samples = sess.run(G_sample, feed_dict={fake_y: fake_labels})
+    image_to_gif('', masked, duration=1, gifname='masked')
+    image_to_gif('', recon, duration=1, gifname='recon')
+    image_to_gif('', true, duration=1, gifname='true')
 
-    fig = show_images(samples[:25])
-    plt.show()
-
-with get_session() as sess:
-    sess.run(tf.global_variables_initializer())
-    run_a_gan(sess,G_train_step,G_loss,D_train_step,D_loss,G_extra_step,D_extra_step,batch_size=opts.batch, num_epoch=opts.epoch)
+tf.global_variables_initializer().run()
+train_VAE(train, loss, reconstruction, batch_size=opts.batch, num_epoch=opts.epoch)
