@@ -7,10 +7,10 @@ More background info can be found [here](https://github.com/yk287/Pix2Pix_CarMas
 
 Only trained the model for 20 epochs, but the results are pretty decent. 
 
-![plot](Car_Mask_TF/Train_Loss.png)
+![plot](Train_Loss.png)
 
 Original Image
-![true](Car_Mask_TF/gifs/true.gif)
+![true](gifs/true.gif)
 
 Masked Image
-![recon](Car_Mask_TF/gifs/recon.gif)
+![recon](gifs/recon.gif)
