@@ -3,4 +3,4 @@
 
 ## Training Montage
 
-![plot](PatchGan/recon.gif)
+![plot](recon.gif)
