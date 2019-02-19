@@ -7,10 +7,10 @@ Though I've used UNET before to takle this issue [before](https://github.com/yk2
 
 ## Training
 
-![Loss](Pix2Pix_TF/img/Train_Loss.png)
+![Loss](img/Train_Loss.png)
 
 ## Input and Masked images
 
-![Mask](Pix2Pix_TF/img/recon.gif) 
+![Mask](img/recon.gif) 
 
-![Input](Pix2Pix_TF/img/true.gif)
+![Input](img/true.gif)
