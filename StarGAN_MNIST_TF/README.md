@@ -6,5 +6,5 @@
 
 ## Training Progress
 
-![gif](StarGAN_MNIST_TF/img/original.gif)![gif](StarGAN_MNIST_TF/img/recon.gif)
+![gif](/img/original.gif)![gif](/img/recon.gif)
 
