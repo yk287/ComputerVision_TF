@@ -6,5 +6,5 @@
 
 ## Training Progress
 
-![gif](/img/original.gif)![gif](/img/recon.gif)
+![gif](img/original.gif)![gif](img/recon.gif)
 
