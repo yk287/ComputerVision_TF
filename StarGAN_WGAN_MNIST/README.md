@@ -6,7 +6,7 @@ Tensorflow implementation of the model from the [paper](https://arxiv.org/pdf/17
 
 ![plot](img/Train_Loss.png)
 
-![plot](img/digits.gif) ![plot](img/original.gif) 
+![plot](img/recon.gif) ![plot](img/original.gif) 
 
 ## Final Image
 
